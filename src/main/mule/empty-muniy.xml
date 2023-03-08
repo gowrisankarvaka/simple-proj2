@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="8a281f88-4d46-41ff-9942-cb8f672cf49d" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="Gowri123$" database="EEE" />
+	</db:config>
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="a7a77ac7-0ee7-46ff-b545-a14312056be9" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="object_store_in_mule4Flow" doc:id="493080a7-d225-4510-a46f-69593c6878bd" >
+		<http:listener doc:name="Listener" doc:id="85867c3d-40e9-4c86-b8d7-675c65fa216d" config-ref="HTTP_Listener_config" path="/munit"/>
+		<os:clear doc:name="Clear" doc:id="523cb278-5d08-49ab-af50-2cf9adf20912" />
+		<try doc:name="Try" doc:id="1372d924-9155-4839-8278-235a49dd0a5d" >
+			<until-successful maxRetries="2" doc:name="Until Successful" doc:id="dba7e950-ed8c-4479-a10e-908158d32691" millisBetweenRetries="2000">
+			<os:retrieve doc:name="Retrieve" doc:id="cb41a894-c99e-43b8-b1cf-84958484355a" target="lastRecord" key="lastRecord">
+				<os:default-value><![CDATA[0]]></os:default-value>
+			</os:retrieve>
+			<db:select doc:name="Select" doc:id="b30f0e3b-cc4c-43a5-93f6-12518d0ae1e8" config-ref="Database_Config">
+				<db:sql><![CDATA[select * from Electrical where id > :lastRecord LIMIT 2]]></db:sql>
+				<db:input-parameters><![CDATA[#[lastRecord: vars.lastRecord]]]></db:input-parameters>
+			</db:select>
+			<choice doc:name="Choice" doc:id="440a638b-6c45-4c16-ac3d-2a3ada7f14a2">
+			<when expression="#[vars.lastRecord != 0]">
+					<logger level="INFO" doc:name="Logger" doc:id="31dc2344-ce3d-46a2-a4ec-0f168628d4b5" message="#[payload]" />
+					<os:store doc:name="Store" doc:id="e6c3dcb4-993a-46db-94c6-cbb9f56b63f3" key="lastRecord">
+						<os:value><![CDATA[#[payload.id[-1]]]]></os:value>
+					</os:store>
+					<ee:transform doc:name="Transform Message" doc:id="a5924992-d076-486c-ac7f-52430dbdb69f">
+						<ee:message>
+							<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<logger level="INFO" doc:name="Logger" doc:id="fc65a0a2-be3c-41ce-8ee6-f800c8223b14" message="#[payload]" />
+					<file:write doc:name="Write" doc:id="3e15eb75-446b-4b27-8875-2286c622d635" path="C:\Users\i5\Desktop\Gowrisankar\store.txt" mode="APPEND" />
+					<logger level="INFO" doc:name="Logger" doc:id="30a515a6-9046-4c3b-8be7-9504fb46fb38" message="#[payload]" />
+			</when>
+				<otherwise>
+				<logger level="INFO" doc:name="Logger" doc:id="833337e2-b710-4763-a447-4d1c58bf2aea" message="#[payload]" />
+			</otherwise>
+		</choice>
+		</until-successful>
+			<error-handler >
+				<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="f1c5c00d-7797-4384-b9b3-aeb3ad69f01a" >
+					<set-payload value='#["msg" : "data processed successfully!!!!!"]' doc:name="Set Payload" doc:id="2aeed0ac-32bd-44a8-b28b-067104ca6cda" />
+					<logger level="INFO" doc:name="Logger" doc:id="65730fd5-d258-4011-9448-8d9490b27a9c" message="#[payload]" />
+				</on-error-continue>
+			</error-handler>
+		</try>
+	</flow>
+</mule>
